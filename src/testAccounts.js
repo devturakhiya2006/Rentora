@@ -1,9 +1,21 @@
 
-// that is also working
-
-- Customer: dev @rentora.in / password123
-- Vendor: vendor1 @rentora.in / vendor123
-- Admin: admin @rentora.in / admin123
+export const testCredentials = [
+  {
+    role: "Customer",
+    email: "dev@rentora.in",
+    password: "password123"
+  },
+  {
+    role: "Vendor",
+    email: "vendor1@rentora.in",
+    password: "vendor123"
+  },
+  {
+    role: "Admin",
+    email: "admin@rentora.in",
+    password: "admin123"
+  }
+];
 
 
 export const testAccounts = [
