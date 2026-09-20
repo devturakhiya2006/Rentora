@@ -1,0 +1,27 @@
+.category-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(168, 218, 220, 0.4);
+}
+
+.category-card-active {
+  background-color: #2A2626;
+  color: #FCFCFA;
+  border-color: #4A5D23;
+  box-shadow: 0 15px 30px -5px rgba(29, 53, 87, 0.3);
+}
+
+.category-card-inactive {
+  background-color: #FCFCFA;
+  color: #2A2626;
+}
+
+.category-card-inactive:hover {
+  background-color: #F5F4F0;
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px -10px rgba(29, 53, 87, 0.1);
+}
