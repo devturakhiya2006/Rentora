@@ -1,8 +1,11 @@
 
-that is also working
-// - Customer: dev @rentora.in / password123
-//   - Vendor: vendor1 @rentora.in / vendor123
-//     - Admin: admin @rentora.in / admin123
+// that is also working
+
+- Customer: dev @rentora.in / password123
+- Vendor: vendor1 @rentora.in / vendor123
+- Admin: admin @rentora.in / admin123
+
+
 export const testAccounts = [
   {
     id: '11111111-1111-1111-1111-111111111111',
