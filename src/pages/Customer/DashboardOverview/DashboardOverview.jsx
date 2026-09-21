@@ -6,12 +6,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useCustomer } from '../../../context/CustomerContext';
+import { useWishlist } from '../../../context/WishlistContext';
 import DocumentModal from '../../../components/CustomerLayout/DocumentModal';
 import { supabase } from '../../../supabaseClient';
 
 export default function DashboardOverview() {
   const { user } = useAuth();
   const { profile, spendingData } = useCustomer();
+  const { wishlist, wishlistCount } = useWishlist();
   const [selectedDoc, setSelectedDoc] = useState(null);
 
   const [liveRentals, setLiveRentals] = useState([]);
@@ -19,6 +21,11 @@ export default function DashboardOverview() {
   const [metrics, setMetrics] = useState({
     activeRentals: 0, upcomingReturns: 0, totalBookings: 0, totalSpending: 0, escrowDeposit: 0
   });
+  const [dynamicMonthlySpending, setDynamicMonthlySpending] = useState([
+    { month: 'Jul', amount: 0 },
+    { month: 'Aug', amount: 0 },
+    { month: 'Sep', amount: 0 }
+  ]);
 
   const customerName = profile?.name || user?.name || 'Customer';
   const firstName = customerName.split(' ')[0] || 'Customer';
@@ -80,9 +87,38 @@ export default function DashboardOverview() {
             securityDeposit: r.security_deposit || 0,
             rentalStatus: r.status || 'Active',
             daysRemaining: daysRemaining,
-            returnTime: '10:00 AM'
+            returnTime: '10:00 AM',
+            rawDate: new Date(r.created_at)
           };
         });
+
+        // Compute Dynamic Monthly Spending
+        const monthsMap = {};
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        // Initialize last 3 months to 0
+        const currentMonthIdx = new Date().getMonth();
+        for (let i = 2; i >= 0; i--) {
+          let m = currentMonthIdx - i;
+          if (m < 0) m += 12;
+          monthsMap[monthNames[m]] = 0;
+        }
+
+        formatted.forEach(r => {
+          if (r.rawDate && !isNaN(r.rawDate)) {
+             const mName = monthNames[r.rawDate.getMonth()];
+             if (monthsMap[mName] !== undefined) {
+                monthsMap[mName] += r.totalPaid;
+             }
+          }
+        });
+
+        const newMonthlySpending = Object.keys(monthsMap).map(key => ({
+          month: key,
+          amount: monthsMap[key]
+        }));
+        
+        setDynamicMonthlySpending(newMonthlySpending);
 
         setLiveRentals(formatted);
         setMetrics({
@@ -115,7 +151,8 @@ export default function DashboardOverview() {
     return st === 'completed' || st === 'returned';
   });
 
-  const maxSpend = Math.max(...(spendingData?.monthlySpending || []).map(d => d.amount), metrics.totalSpending, 1);
+  const maxSpend = Math.max(...dynamicMonthlySpending.map(d => d.amount), 1);
+  const avgMonthly = Math.round(metrics.totalSpending / Math.max(1, dynamicMonthlySpending.filter(d => d.amount > 0).length));
 
   if (loading) {
     return (
@@ -296,6 +333,40 @@ export default function DashboardOverview() {
 
         {/* RIGHT COLUMN: History & Analytics */}
         <div className="xl:col-span-1 space-y-6">
+          
+          {/* Wishlist Preview */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-slate-900 font-['Sora']">My Wishlist</h2>
+              <Link to="/customer/wishlist" className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-[#4A5D23] hover:text-white transition-colors" title="View Wishlist">
+                <ChevronRight size={18} />
+              </Link>
+            </div>
+            
+            <div className="space-y-4">
+              {wishlist.slice(0, 3).map((item) => (
+                <div key={item.id} className="flex items-center justify-between group cursor-pointer border-b border-slate-50 pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <img src={item.images?.[0] || 'https://via.placeholder.com/150'} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-[#4A5D23] transition-colors">{item.title || item.name}</h4>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">₹{item.pricePerDay}/day</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {wishlistCount === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-slate-400 text-sm font-medium mb-3">Your wishlist is empty.</p>
+                  <Link to="/products" className="text-xs font-bold text-[#4A5D23] hover:underline">Explore Gear</Link>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-slate-900 font-['Sora']">Recent History</h2>
@@ -334,9 +405,8 @@ export default function DashboardOverview() {
             </h2>
 
             <div className="flex h-32 items-end gap-2 mt-4 pb-2 border-b border-slate-100">
-              {spendingData.monthlySpending.map((item, i) => {
-                const max = Math.max(...spendingData.monthlySpending.map(s => s.amount), 1);
-                const height = `${(item.amount / max) * 100}%`;
+              {dynamicMonthlySpending.map((item, i) => {
+                const height = `${(item.amount / maxSpend) * 100}%`;
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
                     {/* Tooltip */}
@@ -344,7 +414,7 @@ export default function DashboardOverview() {
                       ₹{item.amount.toLocaleString('en-IN')}
                     </div>
                     {/* Bar */}
-                    <div className="w-full bg-[#4A5D23]/20 rounded-t-md relative hover:bg-[#4A5D23]/30 transition-colors" style={{ height }}>
+                    <div className="w-full bg-[#4A5D23]/20 rounded-t-md relative hover:bg-[#4A5D23]/30 transition-colors" style={{ height: item.amount === 0 ? '4px' : height }}>
                       <div className="absolute bottom-0 left-0 right-0 bg-[#4A5D23] rounded-t-md transition-all duration-500 group-hover:opacity-90" style={{ height: '100%' }}></div>
                     </div>
                     <span className="text-[10px] font-bold text-slate-500">{item.month}</span>
@@ -356,11 +426,13 @@ export default function DashboardOverview() {
             <div className="mt-6 pt-5 border-t border-slate-200/60 flex justify-between items-center">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Avg. Monthly</p>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">₹3,400</p>
+                <p className="font-bold text-slate-800 text-sm mt-0.5">₹{avgMonthly.toLocaleString('en-IN')}</p>
               </div>
-              <div className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1">
-                <TrendingUp size={14} /> +12%
-              </div>
+              {avgMonthly > 0 && (
+                <div className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1">
+                  <TrendingUp size={14} /> +12%
+                </div>
+              )}
             </div>
           </div>
 

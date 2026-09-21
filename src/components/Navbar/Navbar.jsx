@@ -23,11 +23,13 @@ import {
 } from 'lucide-react';
 import Logo from '../Logo/Logo';
 import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 import './Navbar.css';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
+  const { wishlistCount } = useWishlist();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -297,14 +299,16 @@ export default function Navbar() {
               </Link>
 
               <Link 
-                to="/products"
+                to="/customer/wishlist"
                 aria-label="Wishlist"
                 className="relative p-2.5 text-[#2A2626] hover:text-[#4A5D23] rounded-xl hover:bg-[#F5F4F0] transition-colors"
               >
                 <Heart size={18} />
-                <span className="absolute top-1 right-1 w-4 h-4 bg-[#4A5D23] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">
-                  2
-                </span>
+                {wishlistCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-[#4A5D23] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">
+                    {wishlistCount}
+                  </span>
+                )}
               </Link>
 
               {/* User Authentication Status */}

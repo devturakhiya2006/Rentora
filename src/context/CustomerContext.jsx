@@ -62,7 +62,7 @@ export function CustomerProvider({ children }) {
 
       // Setup live subscription
       const subscription = supabase
-        .channel('customer_notifications_channel')
+        .channel(`customer_notifs_${user.id}_${Date.now()}`)
         .on('postgres_changes', { 
             event: 'INSERT', 
             schema: 'public', 

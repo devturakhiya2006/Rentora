@@ -20,6 +20,7 @@ import {
 import Breadcrumb from '../../components/Breadcrumb/Breadcrumb';
 import { supabase } from '../../supabaseClient';
 import { useBooking } from '../../context/BookingContext';
+import { useWishlist } from '../../context/WishlistContext';
 import './Explore.css';
 
 export default function Explore() {
@@ -37,7 +38,7 @@ export default function Explore() {
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState('popular');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [wishlist, setWishlist] = useState({});
+  const { isInWishlist, toggleWishlist: contextToggleWishlist } = useWishlist();
 
   // Supabase Data States
   const [dbProducts, setDbProducts] = useState([]);
@@ -67,9 +68,9 @@ export default function Explore() {
     if (cat !== null) setSelectedCategory(cat);
   }, [searchParams]);
 
-  const toggleWishlist = (id, e) => {
+  const handleToggleWishlist = (product, e) => {
     e.stopPropagation();
-    setWishlist(prev => ({ ...prev, [id]: !prev[id] }));
+    contextToggleWishlist(product);
   };
 
   const handleQuickRent = (product, e) => {
@@ -402,12 +403,12 @@ export default function Explore() {
                             {product.category || 'Rental'}
                           </span>
                           <button
-                            onClick={(e) => toggleWishlist(product.id, e)}
+                            onClick={(e) => handleToggleWishlist(product, e)}
                             aria-label="Wishlist"
-                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${wishlist[product.id] ? 'bg-[#4A5D23] text-white scale-110' : 'bg-white/80 text-[#2A2626]'
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isInWishlist(product.id) ? 'bg-[#4A5D23] text-white scale-110' : 'bg-white/80 text-[#2A2626]'
                               }`}
                           >
-                            <Heart size={16} fill={wishlist[product.id] ? 'currentColor' : 'none'} />
+                            <Heart size={16} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
                           </button>
                         </div>
                       </div>

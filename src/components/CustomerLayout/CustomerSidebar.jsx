@@ -16,7 +16,8 @@ import {
   LogOut,
   X,
   BadgeCheck,
-  Sparkles
+  Sparkles,
+  Heart
 } from 'lucide-react';
 import { useCustomer } from '../../context/CustomerContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,27 +25,41 @@ import './CustomerSidebar.css';
 
 const navItems = [
   { path: '/customer/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { path: '/customer/rentals', label: 'My Rentals', icon: Package, badge: '3' },
+  { path: '/customer/rentals', label: 'My Rentals', icon: Package },
   { path: '/customer/bookings', label: 'My Bookings', icon: CalendarCheck },
-  { path: '/customer/quotations', label: 'Quotations', icon: FileCheck2, badge: '1 New' },
+  { path: '/customer/wishlist', label: 'My Wishlist', icon: Heart },
+  { path: '/customer/quotations', label: 'Quotations', icon: FileCheck2 },
   { path: '/customer/contracts', label: 'Rental Contracts', icon: ShieldCheck },
   { path: '/customer/invoices', label: 'Invoices', icon: Receipt },
   { path: '/customer/payments', label: 'Payments', icon: CreditCard },
-  { path: '/customer/pickup-returns', label: 'Pickup & Returns', icon: Truck, badge: '2 Due' },
-  { path: '/customer/notifications', label: 'Notifications', icon: Bell, badge: '2' },
+  { path: '/customer/pickup-returns', label: 'Pickup & Returns', icon: Truck },
+  { path: '/customer/notifications', label: 'Notifications', icon: Bell },
   { path: '/customer/profile', label: 'My Profile', icon: User },
   { path: '/customer/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function CustomerSidebar({ isOpen, onClose }) {
   const location = useLocation();
-  const { profile } = useCustomer();
+  const { profile, rentals = [], notifications = [] } = useCustomer();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const activeRentalsCount = rentals.filter(r => {
+    const st = (r.status || '').toLowerCase();
+    return st === 'active' || st === 'confirmed' || st === 'return scheduled' || st === 'rented';
+  }).length;
+
+  const unreadNotifsCount = notifications.filter(n => !n.read).length;
+
+  const getDynamicBadge = (label) => {
+    if (label === 'My Rentals' && activeRentalsCount > 0) return activeRentalsCount.toString();
+    if (label === 'Notifications' && unreadNotifsCount > 0) return unreadNotifsCount.toString();
+    return null;
   };
 
   return (
@@ -91,6 +106,8 @@ export default function CustomerSidebar({ isOpen, onClose }) {
           <ul className="sidebar-nav-list">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const badge = getDynamicBadge(item.label);
+              
               return (
                 <li key={item.path} className="sidebar-nav-item">
                   <NavLink
@@ -102,9 +119,9 @@ export default function CustomerSidebar({ isOpen, onClose }) {
                   >
                     <Icon size={18} className="sidebar-nav-icon" />
                     <span className="sidebar-nav-text">{item.label}</span>
-                    {item.badge && (
-                      <span className={`sidebar-nav-badge ${item.badge.includes('Due') ? 'badge-due' : item.badge.includes('New') ? 'badge-new' : ''}`}>
-                        {item.badge}
+                    {badge && (
+                      <span className={`sidebar-nav-badge ${badge.includes('Due') ? 'badge-due' : badge.includes('New') ? 'badge-new' : ''}`}>
+                        {badge}
                       </span>
                     )}
                   </NavLink>

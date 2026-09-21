@@ -34,6 +34,8 @@ export default function AdminUsersManager() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
+    allocatedCategory: 'All Categories',
     role: 'Operations Admin',
     permissions: ['order_dispatch', 'pickup_tracking']
   });
@@ -52,6 +54,8 @@ export default function AdminUsersManager() {
     setFormData({
       name: '',
       email: '',
+      password: '',
+      allocatedCategory: 'All Categories',
       role: 'Operations Admin',
       permissions: ['order_dispatch', 'pickup_tracking']
     });
@@ -65,6 +69,8 @@ export default function AdminUsersManager() {
     addAdminUser({
       name: formData.name,
       email: formData.email,
+      password: formData.password,
+      allocatedCategory: formData.allocatedCategory,
       role: formData.role,
       permissions: formData.permissions
     });
@@ -155,11 +161,16 @@ export default function AdminUsersManager() {
                     </div>
                   </td>
 
-                  {/* Role */}
+                  {/* Role & Category */}
                   <td className="py-4 px-4">
-                    <span className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60 text-[10px] font-bold uppercase tracking-wider block w-fit mb-1">
                       {user.role}
                     </span>
+                    {user.allocatedCategory && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-semibold">
+                        {user.allocatedCategory}
+                      </span>
+                    )}
                   </td>
 
                   {/* Permissions */}
@@ -330,17 +341,45 @@ export default function AdminUsersManager() {
               </div>
 
               <div>
-                <label className="block mb-1 text-slate-500 uppercase tracking-wider text-[10px]">Role Assignment</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-400 cursor-pointer"
-                >
-                  <option value="Operations Admin">Operations Admin</option>
-                  <option value="Finance Admin">Finance Admin</option>
-                  <option value="Support Admin">Support Admin</option>
-                  <option value="Content Admin">Content Admin</option>
-                </select>
+                <label className="block mb-1 text-slate-500 uppercase tracking-wider text-[10px]">Password for Login</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block mb-1 text-slate-500 uppercase tracking-wider text-[10px]">Role Assignment</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-400 cursor-pointer"
+                  >
+                    <option value="Operations Admin">Operations Admin</option>
+                    <option value="Finance Admin">Finance Admin</option>
+                    <option value="Support Admin">Support Admin</option>
+                    <option value="Content Admin">Content Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-slate-500 uppercase tracking-wider text-[10px]">Allocated Category</label>
+                  <select
+                    value={formData.allocatedCategory}
+                    onChange={(e) => setFormData({ ...formData, allocatedCategory: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-400 cursor-pointer"
+                  >
+                    <option value="All Categories">All Categories</option>
+                    <option value="Electronics & Gaming">Electronics & Gaming</option>
+                    <option value="Vehicles & Transport">Vehicles & Transport</option>
+                    <option value="Fashion & Wearables">Fashion & Wearables</option>
+                    <option value="Furniture & Decor">Furniture & Decor</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

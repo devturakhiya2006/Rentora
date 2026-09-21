@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { BookingProvider } from './context/BookingContext';
 import { AdminProvider } from './context/AdminContext';
 import { CustomerProvider } from './context/CustomerContext';
+import { WishlistProvider } from './context/WishlistContext';
 
 // Navigation & Layout Components
 import Navbar from './components/Navbar/Navbar';
@@ -39,6 +40,7 @@ import PickupReturns from './pages/Customer/PickupReturns/PickupReturns';
 import Notifications from './pages/Customer/Notifications/Notifications';
 import Profile from './pages/Customer/Profile/Profile';
 import Settings from './pages/Customer/Settings/Settings';
+import Wishlist from './pages/Customer/Wishlist/Wishlist';
 
 // Vendor Dashboard Pages
 import VendorOverview from './pages/Vendor/VendorOverview/VendorOverview';
@@ -120,9 +122,10 @@ export default function App() {
   return (
     <AuthProvider>
       <BookingProvider>
-        <AdminProvider>
-          <CustomerProvider>
-            <Router>
+        <WishlistProvider>
+          <AdminProvider>
+            <CustomerProvider>
+              <Router>
               <ScrollToTop />
             <Routes>
               {/* 1. Public Marketplace & Auth Routes */}
@@ -146,6 +149,7 @@ export default function App() {
               <Route path="/customer" element={<ProtectedRoute requiredRole="customer"><CustomerLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/customer/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardOverview />} />
+                <Route path="wishlist" element={<Wishlist />} />
                 <Route path="rentals" element={<MyRentals />} />
                 <Route path="bookings" element={<MyBookings />} />
                 <Route path="quotations" element={<Quotations />} />
@@ -207,8 +211,9 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Router>
-          </CustomerProvider>
-        </AdminProvider>
+            </CustomerProvider>
+          </AdminProvider>
+        </WishlistProvider>
       </BookingProvider>
     </AuthProvider>
   );

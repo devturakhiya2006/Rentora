@@ -109,35 +109,59 @@ export function AdminProvider({ children }) {
           })));
         }
 
-        // Fetch vendors
-        const { data: vendorsData } = await supabase.from('users').select('*').eq('role', 'vendor');
-        if (vendorsData) {
-          setVendors(vendorsData.map(v => ({
-            ...v,
-            businessName: v.name,
-            verificationStatus: 'Approved',
-            accountStatus: v.status || 'Active',
-            revenue: v.revenue || 0,
-            payoutBalance: v.payoutBalance || 0,
-            totalProducts: v.totalProducts || 0,
-            totalOrders: v.totalOrders || 0,
-            gstin: v.gstin || 'N/A',
-            ownerName: v.ownerName || v.name || 'Owner',
-            category: v.category || 'General',
-            activeListings: v.activeListings || 0,
-            city: v.city || 'Unknown',
-            location: v.location || 'Unknown',
-            avatar: v.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.name || 'Vendor')}&background=e2e8f0&color=475569`,
-            phone: v.phone || 'N/A'
-          })));
-        }
-
         // Fetch customers first but wait for rentals to calculate stats
         const { data: customersData } = await supabase.from('users').select('*').eq('role', 'customer');
 
         // Fetch rentals/orders
         const { data: rentalsData } = await supabase.from('rentals').select('*, products(title, category, vendor_id)');
         
+        // Fetch reviews
+        const { data: reviewsData } = await supabase.from('reviews').select('rating, product_id');
+
+        // Fetch vendors
+        const { data: vendorsData } = await supabase.from('users').select('*').eq('role', 'vendor');
+        if (vendorsData) {
+          setVendors(vendorsData.map(v => {
+            const vendorProducts = productsData ? productsData.filter(p => p.vendor_id === v.id || (p.vendor && p.vendor.name === (v.businessName || v.name))) : [];
+            const vendorRentals = rentalsData ? rentalsData.filter(r => r.products?.vendor_id === v.id || (r.products?.vendor && r.products.vendor.name === (v.businessName || v.name))) : [];
+            
+            const vendorReviews = reviewsData && productsData 
+              ? reviewsData.filter(r => {
+                  const p = productsData.find(prod => prod.id === r.product_id);
+                  return p && p.vendor_id === v.id;
+                }) 
+              : [];
+              
+            const totalProductsCount = vendorProducts.length;
+            const totalOrdersCount = vendorRentals.length;
+            const revCount = vendorReviews.length;
+            const ratingValue = revCount > 0 
+              ? (vendorReviews.reduce((sum, r) => sum + r.rating, 0) / revCount).toFixed(1)
+              : 0;
+
+            return {
+              ...v,
+              businessName: v.name,
+              verificationStatus: 'Approved',
+              accountStatus: v.status || 'Active',
+              revenue: v.revenue || 0,
+              payoutBalance: v.payoutBalance || 0,
+              totalProducts: totalProductsCount,
+              totalOrders: totalOrdersCount,
+              activeListings: totalProductsCount,
+              rating: Number(ratingValue),
+              reviewCount: revCount,
+              gstin: v.gstin || 'N/A',
+              ownerName: v.ownerName || v.name || 'Owner',
+              category: v.category || 'General',
+              city: v.city || 'Unknown',
+              location: v.location || 'Unknown',
+              avatar: v.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.name || 'Vendor')}&background=e2e8f0&color=475569`,
+              phone: v.phone || 'N/A'
+            };
+          }));
+        }
+
         if (customersData && rentalsData) {
           setCustomers(customersData.map(c => {
             const customerRentals = rentalsData.filter(r => r.user_id === c.id);
@@ -209,7 +233,7 @@ export function AdminProvider({ children }) {
 
         // Setup live subscription for Admin
         const subscription = supabase
-          .channel('admin_notifications_channel')
+          .channel(`admin_notifs_${Date.now()}`)
           .on('postgres_changes', { 
               event: 'INSERT', 
               schema: 'public', 
@@ -552,11 +576,47 @@ export function AdminProvider({ children }) {
     }
   };
 
-  const updateVendor = (id, updatedFields) => {
-    setVendors((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, ...updatedFields } : v))
-    );
-    showToast('Vendor store details updated.', 'success');
+  const updateVendor = async (id, updatedFields) => {
+    try {
+      const dbUpdate = {
+         name: updatedFields.businessName || updatedFields.name,
+         phone: updatedFields.phone,
+         email: updatedFields.email,
+         city: updatedFields.city,
+         gstin: updatedFields.gstNumber || updatedFields.gstin,
+         category: updatedFields.category,
+         location: updatedFields.address || updatedFields.location,
+         status: updatedFields.accountStatus || updatedFields.status,
+         kycStatus: updatedFields.verificationStatus || updatedFields.kycStatus
+      };
+      
+      Object.keys(dbUpdate).forEach(key => dbUpdate[key] === undefined && delete dbUpdate[key]);
+
+      const { error } = await supabase.from('users').update(dbUpdate).eq('id', id);
+      if (error) throw error;
+
+      setVendors((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, ...updatedFields } : v))
+      );
+      showToast('Vendor store details updated.', 'success');
+    } catch (err) {
+      console.error("Error updating vendor:", err);
+      showToast('Failed to update vendor store details', 'error');
+    }
+  };
+
+  const deleteVendor = async (id) => {
+    try {
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) throw error;
+      const target = vendors.find((v) => v.id === id);
+      setVendors((prev) => prev.filter((v) => v.id !== id));
+      logActivity('Deleted Vendor Store', 'Vendors', `Deleted vendor profile ${target?.businessName} (${id})`);
+      showToast(`Vendor "${target?.businessName}" removed from platform.`, 'info');
+    } catch (err) {
+      console.error("Error deleting vendor:", err);
+      showToast('Failed to delete vendor', 'error');
+    }
   };
 
   const disburseVendorPayout = (id, amount) => {
@@ -858,6 +918,22 @@ export function AdminProvider({ children }) {
       ...newAdmin
     };
     setAdminUsers((prev) => [created, ...prev]);
+    
+    // Insert into Supabase users table so they can log in via AuthContext fallback
+    import('../supabaseClient').then(({ supabase }) => {
+      supabase.from('users').insert({
+        id: created.id,
+        email: created.email,
+        name: created.name,
+        role: 'admin',
+        password: created.password,
+        city: created.allocatedCategory || 'All Categories' // Using city column as a hack to store category since schema is fixed, or if there is categoryAccess use that. Let's use jsonb or just name. Wait, the users table has a `category` column for vendors, we can use that!
+      }).then();
+      
+      // Let's actually update with category column
+      supabase.from('users').update({ category: created.allocatedCategory }).eq('id', created.id).then();
+    });
+
     logActivity('Created Admin User', 'Admin Users', `Created staff account for ${created.name} (${created.role})`);
     showToast(`Admin account created for ${created.name}!`, 'success');
   };
@@ -958,6 +1034,7 @@ export function AdminProvider({ children }) {
         rejectVendor,
         updateVendorStatus,
         updateVendor,
+        deleteVendor,
         disburseVendorPayout,
 
         // Product handlers

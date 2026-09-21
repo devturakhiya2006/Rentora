@@ -36,7 +36,14 @@ export function AuthProvider({ children }) {
           account = { id: authData.user.id, email: email, role: 'customer' };
         }
       } catch (err) {
-        throw new Error(err.message || 'Login failed. Please check your credentials.');
+        // Fallback: Check if they are a dynamically created admin in the users table
+        const { supabase } = await import('../supabaseClient');
+        const { data: mockAdmin } = await supabase.from('users').select('*').eq('email', email).eq('password', password).eq('role', 'admin').single();
+        if (mockAdmin) {
+          account = mockAdmin;
+        } else {
+          throw new Error(err.message || 'Login failed. Please check your credentials.');
+        }
       }
     }
 

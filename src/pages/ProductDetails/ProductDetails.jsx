@@ -18,7 +18,9 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  FileText
+  FileText,
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import Breadcrumb from '../../components/Breadcrumb/Breadcrumb';
 import ProductImageGallery from '../../components/ProductImageGallery/ProductImageGallery';
@@ -26,12 +28,14 @@ import AvailabilityCalendar from '../../components/AvailabilityCalendar/Availabi
 import { supabase } from '../../supabaseClient';
 import { useBooking } from '../../context/BookingContext';
 import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 import './ProductDetails.css';
 
 export default function ProductDetails() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { updateBookingDraft } = useBooking();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   // Supabase States
   const [product, setProduct] = useState(null);
@@ -47,7 +51,6 @@ export default function ProductDetails() {
   const [startDate, setStartDate] = useState('2026-09-18');
   const [endDate, setEndDate] = useState('2026-09-20');
   const [durationDays, setDurationDays] = useState(2);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   
   // Review Form States
@@ -68,7 +71,15 @@ export default function ProductDetails() {
           .single();
 
         if (error) throw error;
-        setProduct(mainProduct);
+        
+        // Fetch vendor details
+        let vendorData = null;
+        if (mainProduct.vendor_id) {
+          const { data: vData } = await supabase.from('users').select('*').eq('id', mainProduct.vendor_id).single();
+          vendorData = vData;
+        }
+
+        setProduct({ ...mainProduct, vendor: vendorData });
 
         // Fetch related products dynamically from same category
         const catSlug = mainProduct?.categorySlug || mainProduct?.category;
@@ -149,7 +160,9 @@ export default function ProductDetails() {
   const rentalSubtotal = currentRate * durationMultiplier * quantity;
   const depositTotal = depositAmt * quantity;
   const deliveryFee = deliveryType === 'doorstep' ? 199 : 0;
-  const estimatedTotal = rentalSubtotal + depositTotal + deliveryFee;
+  const estimatedTotal = (baseRate * durationDays * quantity) + deliveryFee;
+
+  const isOwnerVendor = user && user.role === 'vendor' && product?.vendor_id === user.id;
 
   const handleRequestQuote = async () => {
     if (!user) {
@@ -289,12 +302,12 @@ export default function ProductDetails() {
                     <span>Share</span>
                   </button>
                   <button
-                    onClick={() => setIsWishlisted(!isWishlisted)}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all ${isWishlisted ? 'bg-[#4A5D23] text-white border-[#4A5D23]' : 'bg-[#F5F4F0] text-[#2A2626] border-[#E7E5E4]/40'
+                    onClick={() => toggleWishlist(product)}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all ${isInWishlist(product?.id) ? 'bg-[#4A5D23] text-white border-[#4A5D23]' : 'bg-[#F5F4F0] text-[#2A2626] border-[#E7E5E4]/40'
                       }`}
                   >
-                    <Heart size={14} fill={isWishlisted ? 'currentColor' : 'none'} />
-                    <span>{isWishlisted ? 'Saved' : 'Wishlist'}</span>
+                    <Heart size={14} fill={isInWishlist(product?.id) ? 'currentColor' : 'none'} />
+                    <span>{isInWishlist(product?.id) ? 'Saved' : 'Wishlist'}</span>
                   </button>
                 </div>
               </div>
@@ -500,6 +513,37 @@ export default function ProductDetails() {
                   )}
                 </div>
               )}
+
+              {/* Vendor Profile Section */}
+              {product?.vendor && (
+                <div className="bg-white p-5 rounded-3xl border border-[#E7E5E4]/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200 overflow-hidden">
+                        <Store size={20} className="text-gray-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-[#2A2626] font-['Sora']">{product.vendor.name}</h4>
+                      <div className="text-xs text-[#78716C] flex items-center gap-2">
+                        <span>{product.vendor.city || 'Verified Vendor'}</span>
+                        <span>•</span>
+                        <span className="text-[#4A5D23] font-bold">Verified Store</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {product.vendor.phone && (
+                      <a
+                        href={`tel:${product.vendor.phone}`}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-[#4A5D23] text-[#2A2626] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#F5F4F0]"
+                      >
+                        <Phone size={14} className="text-[#4A5D23]" />
+                        <span>Call Store</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Availability Calendar */}
@@ -617,22 +661,54 @@ export default function ProductDetails() {
               </div>
 
               {/* Action Button */}
-              <button
-                onClick={handleRentNow}
-                className="w-full py-4 rounded-2xl bg-[#4A5D23] hover:bg-[#36451A] text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-xl transition-all"
-              >
-                <span>Rent Now • Reserve Instantly</span>
-                <ArrowRight size={16} />
-              </button>
+              {isOwnerVendor ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-xs">
+                      <AlertCircle size={16} className="text-amber-600 flex-shrink-0" />
+                      <span>Vendor Listing Owner Notice</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-800 font-medium">
+                      You are the owner of this equipment. Vendors cannot rent their own listings. Only customer accounts can place rental orders.
+                    </p>
+                  </div>
+
+                  <button
+                    disabled
+                    className="w-full py-4 rounded-2xl bg-slate-200 text-slate-500 font-extrabold text-xs cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Lock size={15} />
+                    <span>Vendors Cannot Rent Own Listing</span>
+                  </button>
+
+                  <Link
+                    to="/vendor/products"
+                    className="w-full py-3 rounded-2xl bg-[#2A2626] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md text-center"
+                  >
+                    <Store size={14} />
+                    <span>Manage Listing in Vendor Hub</span>
+                  </Link>
+                </div>
+              ) : (
+                <button
+                  onClick={handleRentNow}
+                  className="w-full py-4 rounded-2xl bg-[#4A5D23] hover:bg-[#36451A] text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-xl transition-all"
+                >
+                  <span>Rent Now • Reserve Instantly</span>
+                  <ArrowRight size={16} />
+                </button>
+              )}
               
-              <button
-                onClick={handleRequestQuote}
-                disabled={requestingQuote}
-                className="w-full py-3 rounded-2xl bg-white border-2 border-[#4A5D23] text-[#4A5D23] hover:bg-[#F5F4F0] font-extrabold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                <FileText size={16} />
-                <span>{requestingQuote ? 'Requesting...' : 'Request Custom Quote'}</span>
-              </button>
+              {!isOwnerVendor && (
+                <button
+                  onClick={handleRequestQuote}
+                  disabled={requestingQuote}
+                  className="w-full py-3 rounded-2xl bg-white border-2 border-[#4A5D23] text-[#4A5D23] hover:bg-[#F5F4F0] font-extrabold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <FileText size={16} />
+                  <span>{requestingQuote ? 'Requesting...' : 'Request Custom Quote'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

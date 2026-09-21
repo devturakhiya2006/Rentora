@@ -41,14 +41,27 @@ export default function Login() {
     try {
       const user = await login(email, password);
       
+      const from = location.state?.from;
+
       if (user.role === 'admin') {
+        // Admins should always go to admin dashboard unless they were on a public page?
+        // Just send to admin dashboard to be safe.
         navigate('/admin/dashboard');
-      } else if (location.state?.from) {
-        navigate(location.state.from);
       } else if (user.role === 'vendor') {
-        navigate('/vendor/dashboard');
+        // If they were on a public page (not customer or admin), let them go back.
+        // Otherwise send to vendor dashboard.
+        if (from && !from.startsWith('/customer') && !from.startsWith('/admin')) {
+          navigate(from);
+        } else {
+          navigate('/vendor/dashboard');
+        }
       } else {
-        navigate('/customer/dashboard');
+        // Customers go to where they came from (e.g. checkout, product) or customer dashboard
+        if (from && !from.startsWith('/vendor') && !from.startsWith('/admin')) {
+          navigate(from);
+        } else {
+          navigate('/customer/dashboard');
+        }
       }
     } catch (err) {
       setError(err.message);
